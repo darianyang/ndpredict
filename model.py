@@ -3,15 +3,15 @@ Building a RF model for N deamidation probability prediction.
 
 TODO: 
     * LDA could be useful here?
-    * Some of the features could be improved:
-        * AA following Asn could be encoded instead of not being used
-        * secondary_structure is 1/2/3/4, these values are assumed to be ordinal in
-          the original paper/model, but they would be better maybe as one-hot encoded
-        * The dihedral angles are in degrees, since these are periodic values this could
-          be improved by converting to sin and cos dimensions.
 
 RF ROCAUC from paper: 0.96
 Using the out-of-the-box sklearn RF regressor on same feature set: ROCAUC is 0.87-0.89
+I made the following changes to feature space:
+    * secondary_structure is 1/2/3/4, these values are assumed to be ordinal in
+        the original paper/model, but they would be better maybe as one-hot encoded
+    * The dihedral angles are in degrees, since these are periodic values this could
+        be improved by converting to sin and cos dimensions.
+    * this did not improve the ROCAUC, likely because it is very dependent on Half_life
 """
 
 import numpy as np
@@ -33,6 +33,23 @@ X = data.iloc[:, 3:-1]
 # Target variable (last column = deamidation : yes or no)
 y = data.iloc[:, -1] 
 
+def proc_angle_data(data):
+    """
+    Periodic angles (e.g. dihedrals) near periodic boundaries will
+    behave poorly since -179° and 179° are actually only 2° away.
+    This converts a single angle to radians, then returns the 
+    sin and cos of the radians.
+    """
+    # conver to rads
+    data_rad = data * np.pi / 180
+    # convert to cos and sin
+    data_rad_cos = np.cos(data_rad)
+    data_rad_sin = np.sin(data_rad)
+    # stack sin and cos arrays:
+    # dPCA paper does this as well: https://doi.org/10.1063/1.2945165
+    data_rad_cos_sin = np.column_stack((data_rad_cos, data_rad_sin))
+    return data_rad_cos_sin
+
 ### Feature processing ###
 # one hot encoding of secondary_structure column
 # Extract the amino acid residue feature
@@ -47,29 +64,24 @@ encoded_df = pd.DataFrame(residue_encoded, columns=encoder.get_feature_names_out
 X = pd.concat([X.drop('secondary_structure', axis=1), encoded_df], axis=1)
 
 # convert periodic dihedral angle values
-def proc_angle_data(data):
-    """
-    Periodic angles (e.g. dihedrals) near periodic boundaries will
-    behave poorly since -179° and 179° are actually only 2° away.
-    This converts a single angle to radians, then returns the 
-    sin and cos of the radians.
-    """
-    # conver to rads
-    data_rad = data * np.pi / 180
-    # convert to cos and sin
-    data_rad_cos = np.cos(data_rad)
-    data_rad_sin = np.sin(data_rad)
-    # sin and cos arrays: χ(i) = cos(θ(i))x + sin(θ(i))y
-    #data_norm = np.linalg.norm()
-    # stack sin and cos arrays:
-    # dPCA paper does this as well: https://doi.org/10.1063/1.2945165
-    data_rad_cos_sin = np.hstack((data_rad_cos, data_rad_sin))
-    # return and save
-    data = data_rad_cos_sin
-    return data
+# Convert "phi," "psi," "chi1," and "chi2" columns
+columns_to_convert = ["Phi", "Psi", "Chi1", "Chi2"]
+
+# make sin/cos processed dihedral data and add to df
+for column in columns_to_convert:
+    converted_data = proc_angle_data(X[column])
+    sincos_lookup = {0:"cos", 1:"sin"}
+    for i in range(converted_data.shape[1]):
+        new_column_name = f"{column}_{sincos_lookup[i]}"
+        X[new_column_name] = converted_data[:, i]
+
+# drop original angle features
+X = X.drop(columns_to_convert, axis=1)
 
 # save feature names
 feat_names = X.columns.values
+# print(feat_names)
+# print(X)
 
 # Standardize the features
 scaler = StandardScaler()
