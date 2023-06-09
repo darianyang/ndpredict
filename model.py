@@ -2,7 +2,9 @@
 Building a RF model for N deamidation probability prediction.
 
 TODO: 
-    * LDA could be useful here?
+    * feature selection using RFE: recursive feature elimination.
+    * LDA could be useful here? Can predict labels or label probabilities for ROCAUC.
+    * hyperparameter opt of RF and/or LDA
 
 RF ROCAUC from paper: 0.96
 Using the out-of-the-box sklearn RF regressor on same feature set: ROCAUC is 0.87-0.89
@@ -46,7 +48,6 @@ def proc_angle_data(data):
     data_rad_cos = np.cos(data_rad)
     data_rad_sin = np.sin(data_rad)
     # stack sin and cos arrays:
-    # dPCA paper does this as well: https://doi.org/10.1063/1.2945165
     data_rad_cos_sin = np.column_stack((data_rad_cos, data_rad_sin))
     return data_rad_cos_sin
 
@@ -80,8 +81,6 @@ X = X.drop(columns_to_convert, axis=1)
 
 # save feature names
 feat_names = X.columns.values
-# print(feat_names)
-# print(X)
 
 # Standardize the features
 scaler = StandardScaler()
@@ -92,7 +91,7 @@ label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(y)
 
 # Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_encoded, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_encoded, test_size=0.2)
 
 # Create and fit the random forest regression model
 model = RandomForestRegressor()
