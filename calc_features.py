@@ -206,15 +206,17 @@ class Calc_Features:
         pssa : float
             PSSA: Percent Sidechain Solvent Accessibility (of the sidechain).
         """
-        sasa_residue = md.shrake_rupley(self.traj, mode='residue')[0][:, asn]
+        # calc residue and sidechain sasa
+        sasa_residue = md.shrake_rupley(self.traj, mode='residue')[:, asn]
         sasa_sidechain = md.shrake_rupley(
-            self.traj, mode='atom')[0][:, self.traj.top.select(f'sidechain and resid {asn}')]
+            self.traj, mode='atom')[:, self.traj.top.select(f'sidechain and resid {asn}')]
 
         # Calculate percentage solvent accessibilities
-        psa = sasa_residue.mean()
-        pssa = sasa_sidechain.mean()
+        psa = sasa_residue.sum()
+        pssa = sasa_sidechain.sum()
 
-        return psa, pssa
+        # SASA conversion: nm^2 --> A^2
+        return psa * 100, pssa * 100
 
     def calc_dihedrals(self, asn):
         """
@@ -258,7 +260,8 @@ class Calc_Features:
         for asn in self.asns:
             #print(self.calc_attack_distance(asn))
             #print(self.calc_bfactors(asn))
-            print(self.calc_dssp(asn))
+            #print(self.calc_dssp(asn))
+            print(self.calc_psa_sasa(asn))
 
 
         # feature_array = np.array([
