@@ -19,11 +19,14 @@ I made the following changes to feature space:
     * this did not change the ROCAUC, likely because it is very dependent on Half_life
 I did hyperparameter opt of RF with grid search and CV:
     * no significant improvements from the default parameters
+I followed up with manual hyperparameter tuning to reduce overfitting based on ROCAUC of
+training vs test datasets, these new parameters seem to be better based on CV scores.
 """
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pickle
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
@@ -171,10 +174,16 @@ class NDPredict:
             self.X_train, self.X_test, self.y_train, self.y_test = \
                 train_test_split(self.X, self.y, test_size=0.3, random_state=1)
 
-    def rocauc_score(self, model):
+    def rocauc_score(self, model, plot=True):
         """
         Input model (e.g. RF regressor) and output ROCAUC score.
         Saves the model as self.model.
+
+        Parameters
+        ----------
+        model : sklearn model object
+        plot : bool
+            By default (True), outputs a ROC curve plot.
         """
         # make plot object
         fig, ax = plt.subplots()
@@ -186,8 +195,9 @@ class NDPredict:
         y_pred = model.predict(self.X_train)
         roc_auc = roc_auc_score(self.y_train, y_pred)
         print("TRAIN ROC AUC score:", roc_auc)
-        fpr, tpr, _ = roc_curve(self.y_train, y_pred)
-        self.plot_roc_curve(fpr, tpr, roc_auc, "Train", ax=ax)
+        if plot:
+            fpr, tpr, _ = roc_curve(self.y_train, y_pred)
+            self.plot_roc_curve(fpr, tpr, roc_auc, "Train", ax=ax)
 
         # Predict the probabilities on the test set
         y_pred = model.predict(self.X_test)
@@ -199,8 +209,9 @@ class NDPredict:
         #print(dict(zip(feat_names, model.feature_importances_)))
 
         # ROC AUC plot (TODO: seperate methods for plots)
-        fpr, tpr, _ = roc_curve(self.y_test, y_pred)
-        self.plot_roc_curve(fpr, tpr, roc_auc, "Test", ax=ax)
+        if plot:
+            fpr, tpr, _ = roc_curve(self.y_test, y_pred)
+            self.plot_roc_curve(fpr, tpr, roc_auc, "Test", ax=ax)
 
         # save the model and print oob score if avail
         self.model = model
@@ -212,11 +223,11 @@ class NDPredict:
         """
         n fold CV score of the model.
         """
-        scores = cross_val_score(self.model, self.X, self.y, scoring="roc_auc", cv=n_fold)
-        print("CV: %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
-        # scores = cross_validate(self.model, self.X, self.y, 
-        #                         scoring="roc_auc", cv=n_fold, return_train_score=True)
-        #print(scores)
+        # scores = cross_val_score(self.model, self.X, self.y, scoring="roc_auc", cv=n_fold)
+        # print("CV: %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+        scores = cross_validate(self.model, self.X, self.y, 
+                                scoring="roc_auc", cv=n_fold, return_train_score=True)
+        print(f"CV TEST: {np.mean(scores['test_score'])}, CV TRAIN: {np.mean(scores['train_score'])}")
 
     def plot_feat_importances(self):
         """
@@ -288,7 +299,7 @@ class NDPredict:
         ax.plot([0, 1], [0, 1], color="k", linestyle="--")
         ax.set_xlabel("False Positive Rate")
         ax.set_ylabel("True Positive Rate")
-        ax.set_title("Receiver Operating Characteristic (ROC) Curve", fontsize=16)
+        ax.set_title("Receiver Operating Characteristic (ROC) Curve")
         ax.legend()
 
     def get_rf_model(self):
@@ -320,13 +331,15 @@ class NDPredict:
 if __name__ == "__main__":
     ndp = NDPredict()
     ndp.data_split(use_train_test=True)
-    #ndp.rocauc_score(RandomForestRegressor(random_state=1, oob_score=True, max_features=0.33))
-    #ndp.rocauc_score(RandomForestRegressor(random_state=1, n_estimators=30))
-    #ndp.rocauc_score(RandomForestClassifier(random_state=1))
     #ndp.rf_grid_opt()
     # opt to prevent overfitting training data
     best = {'n_estimators': 1000, 'min_samples_split': 100, 'min_samples_leaf': 10, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
-    ndp.rocauc_score(RandomForestRegressor(**best))
-    #ndp.rocauc_score(RandomForestRegressor())
+    ndp.rocauc_score(RandomForestRegressor(**best), plot=False)
+    #ndp.rocauc_score(RandomForestRegressor(oob_score=True), plot=False)
     ndp.cv_score(5)
-    plt.show()
+    # save the model to a pickel object
+    #pickle.dump(ndp.model, open("ndp_model.pkl", 'wb'))
+    # load pickel model object
+    #pickle.load(ndp.model, open("ndp_model.pkl", 'rb'))
+
+    #plt.show()
