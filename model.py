@@ -28,6 +28,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pickle
 
+import mdtraj
+
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -308,9 +310,9 @@ class NDPredict:
         """
         pass
 
-    def proc_pdb(self, pdb, asns=None):
+    def pdb_proc(self, pdb, asns=None):
         """
-        Input a pdb file and calculate ML features.
+        Input a pdb file and calculate ML features using MDTraj.
 
         Parameters
         ----------
@@ -326,20 +328,38 @@ class NDPredict:
         pdb_feats : 2darray
             Array with each row as an ASN and each column as features.
         """
+        # load in cleaned PDB file
+
+        # make df or array for features
+
+        # columns: PDB	Residue #	AA following Asn	attack_distance	Half_life	norm_B_factor_C	norm_B_factor_CA	norm_B_factor_CB	norm_B_factor_CG	secondary_structure	PSA	PSSA	Psi	Phi	Chi1	Chi2	Deamidation
+
+        # use self.feat_names for column names if needed for df
+
+        pass
+
+    def pdb_pred(self):
+        """
+        Use the input PDB feature set to calc N->D probabilities?
+        Or combine into a single method.
+        """
         pass
 
 if __name__ == "__main__":
-    ndp = NDPredict()
-    ndp.data_split(use_train_test=True)
-    #ndp.rf_grid_opt()
-    # opt to prevent overfitting training data
-    best = {'n_estimators': 1000, 'min_samples_split': 100, 'min_samples_leaf': 10, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
-    ndp.rocauc_score(RandomForestRegressor(**best), plot=False)
-    #ndp.rocauc_score(RandomForestRegressor(oob_score=True), plot=False)
-    ndp.cv_score(5)
-    # save the model to a pickel object
-    #pickle.dump(ndp.model, open("ndp_model.pkl", 'wb'))
-    # load pickel model object
-    #pickle.load(ndp.model, open("ndp_model.pkl", 'rb'))
-
+    # ndp = NDPredict()
+    # ndp.data_split(use_train_test=True)
+    # #ndp.rf_grid_opt()
+    # # opt to prevent overfitting training data
+    # best = {'n_estimators': 1000, 'min_samples_split': 100, 'min_samples_leaf': 10, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
+    # ndp.rocauc_score(RandomForestRegressor(**best), plot=False)
+    # #ndp.rocauc_score(RandomForestRegressor(oob_score=True), plot=False)
+    # ndp.cv_score(5)    
     #plt.show()
+    # # save the ndp object to a pickel object
+    # pickle.dump(ndp, open("ndp_model.pkl", 'wb'))
+
+    # load pickel model object
+    ndp = pickle.load(open("ndp_model.pkl", 'rb'))
+    ndp.plot_feat_importances()
+    plt.show()
+    
