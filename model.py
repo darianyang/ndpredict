@@ -163,6 +163,8 @@ class NDPredict:
         if use_train_test:
             self.X_train, self.y_train, _ = self.proc_csv(self.train_csv)
             self.X_test, self.y_test, _ = self.proc_csv(self.test_csv)
+            # Split the full dataset into training and testing sets
+            self.proc_csv(self.csv)
         else:
             # Split the full dataset into training and testing sets
             self.proc_csv(self.csv)
@@ -210,11 +212,11 @@ class NDPredict:
         """
         n fold CV score of the model.
         """
-        #scores = cross_val_score(self.model, self.X_train, self.y_train, scoring="roc_auc", cv=n_fold)
-        #print("CV: %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
-        scores = cross_validate(self.model, self.X_train, self.y_train, 
-                                scoring="roc_auc", cv=n_fold, return_train_score=True)
-        print(scores)
+        scores = cross_val_score(self.model, self.X, self.y, scoring="roc_auc", cv=n_fold)
+        print("CV: %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+        # scores = cross_validate(self.model, self.X, self.y, 
+        #                         scoring="roc_auc", cv=n_fold, return_train_score=True)
+        #print(scores)
 
     def plot_feat_importances(self):
         """
@@ -322,7 +324,9 @@ if __name__ == "__main__":
     #ndp.rocauc_score(RandomForestRegressor(random_state=1, n_estimators=30))
     #ndp.rocauc_score(RandomForestClassifier(random_state=1))
     #ndp.rf_grid_opt()
-    best = {'n_estimators': 1000, 'min_samples_split': 5, 'min_samples_leaf': 2, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
+    # opt to prevent overfitting training data
+    best = {'n_estimators': 1000, 'min_samples_split': 100, 'min_samples_leaf': 10, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
     ndp.rocauc_score(RandomForestRegressor(**best))
-    ndp.cv_score()
+    #ndp.rocauc_score(RandomForestRegressor())
+    ndp.cv_score(5)
     plt.show()
