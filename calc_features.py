@@ -181,7 +181,13 @@ class Calc_Features:
             alpha helix = 1, beta sheet = 2, coil = 3, and turn = 4.
         """
         dssp = md.compute_dssp(self.traj, simplified=True)
+        # returns 'H', 'S', 'C' for helix, strand, coil
         secondary_structure = dssp[:, asn]
+        # need to convert to numerical 1-4
+        # TODO: for now forgetting about turns (considered coil)
+        #       eventually could not use the simplified dssp output to get turns.
+        mapping = {'H':1, 'S':2, 'C':3}
+        secondary_structure = mapping[secondary_structure[0]]
         return secondary_structure
 
     def calc_psa_sasa(self, asn):
@@ -250,8 +256,9 @@ class Calc_Features:
 
         # loop each ASN and calc each feature
         for asn in self.asns:
-            print(self.calc_attack_distance(asn))
-            print(self.calc_bfactors(asn))
+            #print(self.calc_attack_distance(asn))
+            #print(self.calc_bfactors(asn))
+            print(self.calc_dssp(asn))
 
 
         # feature_array = np.array([
