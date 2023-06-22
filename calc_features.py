@@ -7,7 +7,7 @@ class Calc_Features:
     """
     Take input PDB and calc features needed for NDPredict.
     """
-    def __init__(self, pdb, asns=None):
+    def __init__(self, pdb, asns=None, chainid="A"):
         """
         Parameters
         ----------
@@ -18,10 +18,14 @@ class Calc_Features:
             features for. If default None, all ASN residues found will be used.
             If providing a list, use true residue indexing from 1, this will get
             corrected to index from 0 to be consistent with MDTraj.
+        chainid : str
+            Which chain of the PDB file to use.
         """
         self.pdb = pdb
         # Load the PDB file using MDTraj
         self.traj = md.load(pdb)
+
+        self.chainid = chainid
 
         # find all ASN residues in the topology
         if asns is None:
@@ -85,6 +89,10 @@ class Calc_Features:
         ----------
         asn : int
             ASN residue index (from 0).
+
+        Returns
+        -------
+        attack_distance : float
         """
         # TODO: catch error for wrong residue indexing (can't find CG atom)
         asn_atom = self.traj.topology.select(f'resid {asn} and name CG')
@@ -129,12 +137,11 @@ class Calc_Features:
         # Get the first model (assuming single model)
         model = structure[0]
 
-        # Get the chain and residue of interest (TODO: chain from mdtraj)
-        chain_id = 'A'
-        residue_number = asn 
-
-        chain = model[chain_id]
-        residue = chain[residue_number]
+        # Get the chain and residue of interest
+        # TODO: add something here to loop through all chains and find residue index
+        chain = model[self.chainid]
+        # note biopython will index from 1 but mdtraj from 0
+        residue = chain[int(asn + 1)]
 
         # Define the atom names of interest
         atom_names = ['C', 'CA', 'CB', 'CG']
@@ -155,10 +162,6 @@ class Calc_Features:
                 b_factor = atom.get_bfactor()
                 z_score = (b_factor - average_b_factor) / std_b_factor
                 normalized_b_factors[atom.name] = z_score
-
-        # Print the normalized B-factor values for the specified atoms
-        for atom_name, b_factor in normalized_b_factors.items():
-            print(f'{atom_name}: {b_factor}')
         
         return normalized_b_factors
 
@@ -221,6 +224,7 @@ class Calc_Features:
         phi, psi, chi1, chi2 : floats
             TODO: make array?
         """
+        # TODO: prob don't need calc for entire protein, could select for ASN first?
         # Calculate backbone torsion angles (Phi and Psi)
         phi = md.compute_phi(self.traj)[0][:, asn]
         psi = md.compute_psi(self.traj)[0][:, asn]
@@ -235,7 +239,8 @@ class Calc_Features:
         """
         # for now, just use 0, since not needed, eventually account for this in csv_proc
         #deamidation = int(traj.topology.atom(residue_index).residue.name == 'ASN')
-        self.deamidation = 0
+        deamidation = 0
+        return deamidation
 
     def construct_feat_array(self):
         """
@@ -246,6 +251,7 @@ class Calc_Features:
         # loop each ASN and calc each feature
         for asn in self.asns:
             print(self.calc_attack_distance(asn))
+            print(self.calc_bfactors(asn))
 
 
         # feature_array = np.array([
