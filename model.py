@@ -3,9 +3,11 @@ Building a RF model for N->D deamidation probability prediction.
 
 TODO: 
     * feature selection using RFE: recursive feature elimination.
+        * they didn't implement this into their model, they just did it for the paper.
     * LDA could be useful here? Can predict labels or label probabilities for ROCAUC.
-    * hyperparameter opt of RF and/or LDA
-    * do 10 fold CV to account for bad train/test splitting
+    * check for overfitting: ROCAUC curve for training vs test data
+    * plot CV of data: https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc_crossval.html
+
 
 RF ROCAUC from paper: 0.96
 Using the out-of-the-box sklearn RF regressor on same feature set: ROCAUC is 0.87-0.89
@@ -14,19 +16,29 @@ I made the following changes to feature space:
         the original paper/model, but they would be better maybe as one-hot encoded
     * The dihedral angles are in degrees, since these are periodic values this could
         be improved by converting to sin and cos dimensions.
-    * this did not improve the ROCAUC, likely because it is very dependent on Half_life
+    * this did not change the ROCAUC, likely because it is very dependent on Half_life
+I did hyperparameter opt of RF with grid search and CV:
+    * no significant improvements from the default parameters
 """
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.model_selection import train_test_split
+
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import OneHotEncoder
+
+from sklearn.model_selection import train_test_split
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
+#from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_validate
+
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
 
 class NDPredict:
     """
@@ -155,15 +167,25 @@ class NDPredict:
             # Split the full dataset into training and testing sets
             self.proc_csv(self.csv)
             self.X_train, self.X_test, self.y_train, self.y_test = \
-                train_test_split(self.X, self.y, test_size=0.2, random_state=1)
-        #print(self.X_train.shape, self.X_test.shape, self.y_train.shape, self.y_test.shape)
+                train_test_split(self.X, self.y, test_size=0.3, random_state=1)
 
     def rocauc_score(self, model):
         """
         Input model (e.g. RF regressor) and output ROCAUC score.
+        Saves the model as self.model.
         """
+        # make plot object
+        fig, ax = plt.subplots()
+
         # fit the model
         model.fit(self.X_train, self.y_train)
+
+        # plot rocauc of training data
+        y_pred = model.predict(self.X_train)
+        roc_auc = roc_auc_score(self.y_train, y_pred)
+        print("TRAIN ROC AUC score:", roc_auc)
+        fpr, tpr, _ = roc_curve(self.y_train, y_pred)
+        self.plot_roc_curve(fpr, tpr, roc_auc, "Train", ax=ax)
 
         # Predict the probabilities on the test set
         y_pred = model.predict(self.X_test)
@@ -171,11 +193,34 @@ class NDPredict:
         # Compute ROC AUC score
         roc_auc = roc_auc_score(self.y_test, y_pred)
 
-        print("ROC AUC score:", roc_auc)
+        print("TEST ROC AUC score:", roc_auc)
         #print(dict(zip(feat_names, model.feature_importances_)))
 
-        # TODO: ROC AUC plot as well
-        plt.bar(self.feat_names, model.feature_importances_)
+        # ROC AUC plot (TODO: seperate methods for plots)
+        fpr, tpr, _ = roc_curve(self.y_test, y_pred)
+        self.plot_roc_curve(fpr, tpr, roc_auc, "Test", ax=ax)
+
+        # save the model and print oob score if avail
+        self.model = model
+        if hasattr(self.model, "oob_score_"):
+            print("Score: ", self.model.score(self.X_test, y_pred))
+            print("OOB Score: ", self.model.oob_score_)
+
+    def cv_score(self, n_fold=10):
+        """
+        n fold CV score of the model.
+        """
+        #scores = cross_val_score(self.model, self.X_train, self.y_train, scoring="roc_auc", cv=n_fold)
+        #print("CV: %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+        scores = cross_validate(self.model, self.X_train, self.y_train, 
+                                scoring="roc_auc", cv=n_fold, return_train_score=True)
+        print(scores)
+
+    def plot_feat_importances(self):
+        """
+        Simple bar plot of feature importances from RF model.
+        """
+        plt.bar(self.feat_names, self.model.feature_importances_)
         plt.xticks(rotation=45, ha="right")
         plt.tight_layout()
         plt.show()
@@ -187,11 +232,11 @@ class NDPredict:
         """
         # create grid
         # Number of trees in random forest
-        n_estimators = [int(x) for x in np.linspace(start = 0, stop = 100, num = 10)]
+        n_estimators = [int(x) for x in np.linspace(start = 10, stop = 1000, num = 10)]
         # The function to measure the quality of a split
         #criterion = ["squared_error", "absolute_error", "friedman_mse", "poisson"]
         # Number of features to consider at every split
-        max_features = [1.0, 'sqrt', 'log2']
+        max_features = [1.0, 'sqrt', 'log2', 0.33]
         # Maximum number of levels in tree
         max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
         max_depth.append(None)
@@ -224,12 +269,60 @@ class NDPredict:
 
         # print and test out best parameters
         print(rf_random.best_params_)
+        #best = {'n_estimators': 110, 'min_samples_split': 5, 'min_samples_leaf': 2, 'max_features': 'log2', 'max_depth': None, 'bootstrap': True}
         self.rocauc_score(RandomForestRegressor(**rf_random.best_params_))
 
+    def plot_roc_curve(self, x, y, score, label="", ax=None):
+        """
+        Function for plotting the reciever operator characteristic curve 
+        with the X axis as the false positive rate and the y axis as the 
+        true positive rate.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = plt.gcf()
+        ax.plot(x, y, label=f"{label}AUC: {score:0.3f}")
+        ax.plot([0, 1], [0, 1], color="k", linestyle="--")
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_title("Receiver Operating Characteristic (ROC) Curve", fontsize=16)
+        ax.legend()
+
+    def get_rf_model(self):
+        """
+        Train and return a RF model using the input data.
+        """
+        pass
+
+    def proc_pdb(self, pdb, asns=None):
+        """
+        Input a pdb file and calculate ML features.
+
+        Parameters
+        ----------
+        pdb : str
+            Path to PDB file input. Make sure this file is protonated 
+            fully cleaned up.
+        asns : list of ints
+            List of residue numbers to select which ASN residues to calculate
+            features for. If deafult None, all ASN residues found will be used.
+
+        Returns
+        -------
+        pdb_feats : 2darray
+            Array with each row as an ASN and each column as features.
+        """
+        pass
 
 if __name__ == "__main__":
     ndp = NDPredict()
     ndp.data_split(use_train_test=True)
-    ndp.rocauc_score(RandomForestRegressor(n_estimators=100))
+    #ndp.rocauc_score(RandomForestRegressor(random_state=1, oob_score=True, max_features=0.33))
     #ndp.rocauc_score(RandomForestRegressor(random_state=1, n_estimators=30))
     #ndp.rocauc_score(RandomForestClassifier(random_state=1))
+    #ndp.rf_grid_opt()
+    best = {'n_estimators': 1000, 'min_samples_split': 5, 'min_samples_leaf': 2, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
+    ndp.rocauc_score(RandomForestRegressor(**best))
+    ndp.cv_score()
+    plt.show()
