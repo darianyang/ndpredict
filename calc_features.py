@@ -114,6 +114,7 @@ class Calc_Features:
         -------
         b_factors : 1darray of floats
             TODO: normalized array of b-factors for C, CA, CB, CG
+                  also need to better validate with training set PDB.
         """
         # Calculate normalized B-factors 
         # (TODO: do this if experimental b_factors are not present)
@@ -215,6 +216,7 @@ class Calc_Features:
         psa = sasa_residue.sum()
         pssa = sasa_sidechain.sum()
 
+        # TODO: need to make consistent with training set data calc
         # SASA conversion: nm^2 --> A^2
         return psa * 100, pssa * 100
 
@@ -241,6 +243,8 @@ class Calc_Features:
         chi1 = md.compute_chi1(self.traj)[0][:, asn]
         chi2 = md.compute_chi2(self.traj)[0][:, asn]
 
+        return phi, psi, chi1, chi2
+
     def calc_deamidation_binary(self):
         """
         Calculate deamidation feature (0 or 1)
@@ -261,7 +265,8 @@ class Calc_Features:
             #print(self.calc_attack_distance(asn))
             #print(self.calc_bfactors(asn))
             #print(self.calc_dssp(asn))
-            print(self.calc_psa_sasa(asn))
+            #print(self.calc_psa_sasa(asn))
+            print(self.calc_dihedrals(asn))
 
 
         # feature_array = np.array([
