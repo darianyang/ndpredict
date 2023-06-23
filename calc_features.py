@@ -37,6 +37,26 @@ class Calc_Features:
             # user defined residue indices of the Asn residues
             self.asns = np.subtract(asns, 1)
 
+    @staticmethod
+    def aa_string_formatter(aa):
+        """
+        Parameters
+        ----------
+        aa : str
+            Three letter AA string, can have any capitalizations.
+        
+        Returns
+        -------
+        aa : str
+            Standardized formatting needed for the Xxx-ASN-Yyy indexing table.
+            e.g. asn --> Asn
+        """
+        # convert to all lower case
+        aa = aa.lower()
+        # capitalize the first letter
+        aa = aa.capitalize()
+        return aa
+
     def get_adjacent_residues(self, asn):
         """
         Get the residues adjacent to the Asn residue.
@@ -55,8 +75,10 @@ class Calc_Features:
         """
         residue_after = self.traj.topology.residue(asn + 1)
         residue_before = self.traj.topology.residue(asn - 1)
-        aa_after = residue_after.name
-        aa_before = residue_before.name
+        # names are in all uppercase, convert to capitalized format
+        # to be compatible with Xxx-ASN-Yyy lookup table
+        aa_after = self.aa_string_formatter(residue_after.name)
+        aa_before = self.aa_string_formatter(residue_before.name)
         return aa_before, aa_after
 
     def calc_halflife(self, asn, table="data/N-D_halftimes_GlyXxxAsnYyyGly.csv"):
@@ -77,9 +99,13 @@ class Calc_Features:
         halflife : float 
             Calculated halflife of indexed ASN residue.
         """
-        halflife_df = pd.read_csv(table)
-        halflife_df
-        # TODO
+        # read in Xxx-ASN-Yyy halflife table
+        halflife_df = pd.read_csv(table, index_col=0)
+        # get adjacent residue names
+        aa_before, aa_after = self.get_adjacent_residues(asn)
+        # index halflife value where row is Xxx and col is Yyy
+        halflife = halflife_df.loc[aa_before, aa_after]
+        return halflife
 
     def calc_attack_distance(self, asn):
         """
@@ -265,11 +291,12 @@ class Calc_Features:
 
         # loop each ASN and calc each feature
         for asn in self.asns:
+            print(self.calc_halflife(asn))
             #print(self.calc_attack_distance(asn))
             #print(self.calc_bfactors(asn))
             #print(self.calc_dssp(asn))
             #print(self.calc_psa_sasa(asn))
-            print(self.calc_dihedrals(asn))
+            #print(self.calc_dihedrals(asn))
 
 
         # feature_array = np.array([
