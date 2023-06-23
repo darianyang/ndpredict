@@ -120,6 +120,21 @@ class NDPredict:
         residue_encoded = encoder.fit_transform(residue_feature.values.reshape(-1, 1))
         # Create a DataFrame with the encoded features
         encoded_df = pd.DataFrame(residue_encoded, columns=encoder.get_feature_names_out(['secondary_structure']))
+        # although all ss elements are not in new pdb data, fill out ss 1-4 anyway
+        # Check if the DataFrame has four columns
+        if len(encoded_df.columns) == 4:
+            # All columns are present
+            pass
+        else:
+            # Add missing columns with zeros
+            missing_columns = [f'secondary_structure_{i}' for i in range(1, 5) 
+                               if f'secondary_structure_{i}' not in encoded_df.columns]
+            for col in missing_columns:
+                encoded_df[col] = 0.0
+            # Reorganize the columns in ascending order
+            encoded_df = encoded_df.reindex(columns=sorted(encoded_df.columns, 
+                                                           key=lambda x: int(x.split('_')[2])))
+
         # Concatenate the encoded features with the original dataset
         X = pd.concat([X.drop('secondary_structure', axis=1), encoded_df], axis=1)
 

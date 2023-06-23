@@ -105,6 +105,7 @@ class Calc_Features:
         aa_before, aa_after = self.get_adjacent_residues(asn)
         # index halflife value where row is Xxx and col is Yyy
         halflife = halflife_df.loc[aa_before, aa_after]
+        # TODO: add rules for when Xxx and Yyy have residues not in table
         return halflife
 
     def calc_attack_distance(self, asn):
@@ -364,4 +365,4 @@ class Calc_Features:
 if __name__ == "__main__":
     cf = Calc_Features('pdb/1hk0_leap.pdb', asns=None, chainid="X")
     fa = cf.construct_feat_array()
-    print(fa)
+    fa.to_csv("1hk0_features.csv", index=False)
