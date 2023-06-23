@@ -32,7 +32,7 @@ class Calc_Features:
             asn_indices = self.traj.topology.select('resname ASN')
             # Get the residue indices of ASN residues
             self.asns = [self.traj.topology.atom(index).residue.index for index in asn_indices]
-            print(self.asns) # TODO: test this
+            self.asns = np.unique(self.asns)
         else:
             # user defined residue indices of the Asn residues
             self.asns = np.subtract(asns, 1)
@@ -138,9 +138,9 @@ class Calc_Features:
 
         Returns
         -------
-        b_factors : 1darray of floats
-            TODO: normalized array of b-factors for C, CA, CB, CG
-                  also need to better validate with training set PDB.
+        C, CA, CB, CG : floats
+            Normalized b-factors for C, CA, CB, CG
+            TODO: need to better validate with training set PDB.
         """
         # Calculate normalized B-factors 
         # (TODO: do this if experimental b_factors are not present)
@@ -190,7 +190,9 @@ class Calc_Features:
                 z_score = (b_factor - average_b_factor) / std_b_factor
                 normalized_b_factors[atom.name] = z_score
         
-        return normalized_b_factors
+        # return in correct order for feature table
+        return normalized_b_factors["C"], normalized_b_factors["CA"], \
+               normalized_b_factors["CB"], normalized_b_factors["CG"]
 
     def calc_dssp(self, asn):
         """ 
@@ -213,7 +215,7 @@ class Calc_Features:
         # need to convert to numerical 1-4
         # TODO: for now forgetting about turns (considered coil)
         #       eventually could not use the simplified dssp output to get turns.
-        mapping = {'H':1, 'S':2, 'C':3}
+        mapping = {'H':1, 'E':2, 'C':3}
         secondary_structure = mapping[secondary_structure[0]]
         return secondary_structure
 
@@ -246,6 +248,39 @@ class Calc_Features:
         # SASA conversion: nm^2 --> A^2
         return psa * 100, pssa * 100
 
+    @staticmethod
+    def find_chi_angles(asn_idxs, mdtraj_angle_calc):
+        """
+        Parameters
+        ----------
+        asn_idxs : list
+            Atom indicies of the ASN residue of interest.
+        mdtraj_angle_calc : tuple of arrays
+            (all_idxs : 2darray, all_angles : 1darray)
+            all_idxs: Array of n_angle rows and 4 cols for each atom incides.
+            all_angles: Array of n_angles.
+
+        Returns
+        -------
+        asn_angle : float
+            Single angle value that we are interested in indexing from
+            the larger arrays.
+        """
+        # unpack the mdtraj angle calc results
+        all_idxs, all_angles = mdtraj_angle_calc
+
+        # go through each set of 4 atom indices of each angle calc
+        for i, idxs in enumerate(all_idxs):
+            # check if any of the the indices match the asn of interest
+            if any(x in asn_idxs for x in idxs):
+                #print("asn_idxs: ", asn_idxs)
+                #print("idxs: ", idxs)
+                asn_angle = all_angles[0, i]
+                #print("asn_angle: ", asn_angle * (180/np.pi))
+        
+        # this should be working but it doesn't seem to match the training set
+        return asn_angle
+
     def calc_dihedrals(self, asn):
         """
         Calculate psi, phi, chi1, chi2 torsion angles.
@@ -258,18 +293,22 @@ class Calc_Features:
         Returns
         -------
         psi, phi, chi1, chi2 : floats
-            TODO: make array?
         """
         # TODO: prob don't need calc for entire protein, could select for ASN first?
         #       or just calc for protein once, then index each angle
+        
+        # atom indices from the ASN residue of interest from the trajectory
+        sidechain_selection = self.traj.topology.select(f'resid {asn} and not type H and not backbone')
+        #print("selection: ", sidechain_selection)
+
         # Calculate backbone torsion angles (Phi and Psi)
-        phi = md.compute_phi(self.traj)[1][:, asn-1]
-        psi = md.compute_psi(self.traj)[1][:, asn]
+        phi = float(md.compute_phi(self.traj)[1][:,asn-1])
+        psi = float(md.compute_psi(self.traj)[1][:,asn])
 
         # Calculate side chain torsion angles (Chi1 and Chi2)
         # TODO: the chi calcs are not the same as training set
-        chi1 = md.compute_chi1(self.traj)[1][:, asn]
-        chi2 = md.compute_chi2(self.traj)[1][:, asn]
+        chi1 = self.find_chi_angles(sidechain_selection, md.compute_chi1(self.traj))
+        chi2 = self.find_chi_angles(sidechain_selection, md.compute_chi2(self.traj))
 
         # convert from radians to degrees
         return psi*(180/np.pi), phi*(180/np.pi), chi1*(180/np.pi), chi2*(180/np.pi)
@@ -285,34 +324,44 @@ class Calc_Features:
 
     def construct_feat_array(self):
         """
-        Construct the final feature array.
+        Main public method of Calc_Features class constructing the feature array.
+
+        Returns
+        -------
+        feature_array : df of shape (len(self.asns), len(feature_names))
         """
-        # TODO: make empty df or array
+        feature_names = ['PDB', 'Residue #', 'AA following Asn', 'attack_distance', 'Half_life', 'norm_B_factor_C', 'norm_B_factor_CA', 'norm_B_factor_CB', 'norm_B_factor_CG', 'secondary_structure', 'PSA', 'PSSA', 'Psi', 'Phi', 'Chi1', 'Chi2', 'Deamidation']
+        # feature array to be filled in
+        feature_array = np.zeros((len(self.asns), len(feature_names)), dtype=object)
 
-        # loop each ASN and calc each feature
-        for asn in self.asns:
-            print(self.calc_halflife(asn))
-            #print(self.calc_attack_distance(asn))
-            #print(self.calc_bfactors(asn))
-            #print(self.calc_dssp(asn))
-            #print(self.calc_psa_sasa(asn))
-            #print(self.calc_dihedrals(asn))
+        # loop each ASN and calc each feature to fill in feature_array
+        for i, asn in enumerate(self.asns):
+            # PDB
+            feature_array[i,0] = self.pdb
+            # resid to PDB resnum
+            feature_array[i,1] = asn + 1
+            # AA following
+            feature_array[i,2] = self.get_adjacent_residues(asn)[1].upper()
+            # attack distance
+            feature_array[i,3] = self.calc_attack_distance(asn)
+            # calc halflife
+            feature_array[i,4] = self.calc_halflife(asn)
+            # b factors of C, CA, CB, CG
+            feature_array[i,5:9] = self.calc_bfactors(asn)
+            # DSSP prediction
+            feature_array[i,9] = self.calc_dssp(asn)
+            # SASA
+            feature_array[i,10:12] = self.calc_psa_sasa(asn)
+            # dihedrals
+            feature_array[i,12:16] = self.calc_dihedrals(asn)
+            # deamidation (TODO: not needed)
+            feature_array[i, 16] = self.calc_deamidation_binary()
 
-
-        # feature_array = np.array([
-        #     ['PDB', 'Residue #', 'AA following Asn', 'attack_distance', 'Half_life', 'norm_B_factor_C',
-        #     'norm_B_factor_CA', 'norm_B_factor_CB', 'norm_B_factor_CG', 'secondary_structure', 'PSA',
-        #     'PSSA', 'Psi', 'Phi', 'Chi1', 'Chi2', 'Deamidation'],
-        #     ['your_pdb_file.pdb', residue_index, aa_following, attack_distance, '', normalized_b_factors[0],
-        #     normalized_b_factors[1], normalized_b_factors[2], normalized_b_factors[3], secondary_structure,
-        #     psa, pssa, psi, phi, chi1, chi2, deamidation]
-        # ])
-
-        # # Print the feature array
-        # for row in feature_array:
-        #     print('\t'.join(map(str, row)))
+        # return the feature array
+        return pd.DataFrame(feature_array, columns=feature_names)
 
 
 if __name__ == "__main__":
-    cf = Calc_Features('pdb/11bg_leap.pdb', asns=[17])
-    cf.construct_feat_array()
+    cf = Calc_Features('pdb/1hk0_leap.pdb', asns=None, chainid="X")
+    fa = cf.construct_feat_array()
+    print(fa)

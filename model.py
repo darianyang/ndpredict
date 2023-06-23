@@ -28,8 +28,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pickle
 
-import mdtraj
-
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from sklearn.preprocessing import StandardScaler, LabelEncoder
