@@ -222,7 +222,7 @@ class Calc_Features:
 
     def calc_dihedrals(self, asn):
         """
-        Calculate phi, psi, chi1, chi2 torsion angles.
+        Calculate psi, phi, chi1, chi2 torsion angles.
 
         Parameters
         ----------
@@ -231,19 +231,22 @@ class Calc_Features:
 
         Returns
         -------
-        phi, psi, chi1, chi2 : floats
+        psi, phi, chi1, chi2 : floats
             TODO: make array?
         """
         # TODO: prob don't need calc for entire protein, could select for ASN first?
+        #       or just calc for protein once, then index each angle
         # Calculate backbone torsion angles (Phi and Psi)
-        phi = md.compute_phi(self.traj)[0][:, asn]
-        psi = md.compute_psi(self.traj)[0][:, asn]
+        phi = md.compute_phi(self.traj)[1][:, asn-1]
+        psi = md.compute_psi(self.traj)[1][:, asn]
 
         # Calculate side chain torsion angles (Chi1 and Chi2)
-        chi1 = md.compute_chi1(self.traj)[0][:, asn]
-        chi2 = md.compute_chi2(self.traj)[0][:, asn]
+        # TODO: the chi calcs are not the same as training set
+        chi1 = md.compute_chi1(self.traj)[1][:, asn]
+        chi2 = md.compute_chi2(self.traj)[1][:, asn]
 
-        return phi, psi, chi1, chi2
+        # convert from radians to degrees
+        return psi*(180/np.pi), phi*(180/np.pi), chi1*(180/np.pi), chi2*(180/np.pi)
 
     def calc_deamidation_binary(self):
         """
