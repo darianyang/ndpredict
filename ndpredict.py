@@ -4,12 +4,9 @@ Get new PDB file ASN residue N->D predicted probabilities.
 """
 
 import pickle
-import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from model import NDPredict
-from calc_features import Calc_Features
 
 # load pickel model object
 ndp = pickle.load(open("ndp_model.pkl", 'rb'))
@@ -28,6 +25,6 @@ print(pred_dict)
 
 plt.bar([str(i) for i in residues], pred)
 plt.ylim(0,1)
-plt.xlabel("$\gamma$$_{D}$-Crystallin (1HK0) Residue Number")
+plt.xlabel("$\gamma$D-Crystallin (1HK0) Residue Number")
 plt.ylabel("Deamidation Probability")
 plt.show()
