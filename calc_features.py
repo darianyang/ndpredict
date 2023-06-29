@@ -364,6 +364,7 @@ class Calc_Features:
 
 if __name__ == "__main__":
     #cf = Calc_Features('pdb/1hk0_leap.pdb', asns=None, chainid="X")
-    cf = Calc_Features('pdb/1gb1_leap.pdb', asns=None, chainid="A")
+    #cf = Calc_Features('pdb/1gb1_leap.pdb', asns=None, chainid="A")
+    cf = Calc_Features('pdb/2m3t_leap.pdb', asns=None, chainid="A")
     fa = cf.construct_feat_array()
-    fa.to_csv("1gb1_features.csv", index=False)
+    fa.to_csv("2m3t_features.csv", index=False)

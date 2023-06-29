@@ -17,7 +17,8 @@ ndp = pickle.load(open("ndp_model.pkl", 'rb'))
 # new ndp class to calc features
 new_pdb = NDPredict()
 #new_pdb.proc_csv("data/1hk0_features.csv")
-new_pdb.proc_csv("data/1gb1_features.csv")
+#new_pdb.proc_csv("data/1gb1_features.csv")
+new_pdb.proc_csv("data/2m3t_features.csv")
 #print(new_pdb.feat_names)
 
 # predict prob of new feats
@@ -26,6 +27,8 @@ pred = ndp.model.predict(new_pdb.X)
 residues = [24, 33, 49, 118, 124, 137, 160]
 # 1gb1
 residues = [8, 35, 37]
+# 2m3t
+residues = [15, 38, 54, 77, 144]
 
 pred_dict = dict(zip(residues, pred))
 print(pred_dict)
@@ -33,6 +36,7 @@ print(pred_dict)
 plt.bar([str(i) for i in residues], pred)
 plt.ylim(0,1)
 #plt.xlabel("$\gamma$D-Crystallin (1HK0) Residue Number")
-plt.xlabel("GB1 Residue Number")
+#plt.xlabel("GB1 Residue Number")
+plt.xlabel("$\gamma$S-Crystallin (2M3T) Residue Number")
 plt.ylabel("Deamidation Probability")
 plt.show()
