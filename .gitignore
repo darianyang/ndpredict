@@ -9,3 +9,4 @@
 *.swo
 __pycache__
 *.log
+ndpredict.egg-info
