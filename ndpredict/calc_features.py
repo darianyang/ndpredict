@@ -156,8 +156,8 @@ class Calc_Features:
         # normalized_b_factors = (fluctuations - average_fluctuation) / std_fluctuation
 
         # extract experimental b-factors from PDB file
-        # Create a PDBParser object
-        parser = PDBParser()
+        # Create a PDBParser object (supress constructor warnings)
+        parser = PDBParser(QUIET=True)
 
         # Parse the PDB file
         structure = parser.get_structure('pdb', self.pdb)

@@ -366,13 +366,13 @@ if __name__ == "__main__":
     # best = {'n_estimators': 1000, 'min_samples_split': 100, 'min_samples_leaf': 10, 'max_features': 0.33, 'max_depth': 3, 'bootstrap': True, 'oob_score' : True}
     # ndp.rocauc_score(RandomForestRegressor(**best), plot=False)
     # #ndp.rocauc_score(RandomForestRegressor(oob_score=True), plot=False)
-    # ndp.cv_score(5)    
-    #plt.show()
+    # ndp.cv_score(5)
     # # save the ndp object to a pickel object
     # pickle.dump(ndp, open("ndp_model.pkl", 'wb'))
+    # pickle.dump(ndp.model, open("ndp_model.pkl", 'wb'))
 
     # load pickel model object
     ndp = pickle.load(open("ndp_model.pkl", 'rb'))
     ndp.plot_feat_importances()
     plt.show()
-    
+

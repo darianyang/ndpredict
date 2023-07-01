@@ -28,19 +28,27 @@ def main():
 
     # load pickel model object
     #ndp = pickle.load(open("ndp_model.pkl", 'rb'))
-    ndp = pickle.load(open(args.model, 'rb'))
+    #ndp = pickle.load(open(args.model, 'rb'))
     #print(ndp.feat_names)
+
+    # calc features of input pdb
+    cf = Calc_Features(args.pdb, asns=None, chainid=args.chainid)
+    fa = cf.construct_feat_array()
+    fa.to_csv(f"{args.pdb[:-4]}_features.csv", index=False)
+
     # new ndp class to calc features
     new_pdb = NDPredict()
+    # load pre-trained model into new NDPredict instance
+    new_pdb.model = pickle.load(open(args.model, 'rb'))
     #new_pdb.proc_csv("data/1hk0_features.csv")
     #new_pdb.proc_csv("data/1gb1_features.csv")
     #new_pdb.proc_csv("data/2m3t_features.csv")
-    cf = Calc_Features(args.pdb, asns=None, chainid=args.chainid)
-    fa = cf.construct_feat_array()
-    #print(new_pdb.feat_names)
+
+    # process updated feat data
+    new_pdb.proc_csv(f"{args.pdb[:-4]}_features.csv")
 
     # predict prob of new feats
-    pred = ndp.model.predict(new_pdb.X)
+    pred = new_pdb.model.predict(new_pdb.X)
 
     # 1hk0
     # residues = [24, 33, 49, 118, 124, 137, 160]
@@ -49,8 +57,10 @@ def main():
     # # 2m3t
     # residues = [15, 38, 54, 77, 144]
     # I can grab asn residues directly from Calc_Features object
-    residues = cf.asns
+    # but convert from res index (0 index) to res id (1 index)
+    residues = np.add(cf.asns, 1)
 
+    # TODO: send to logger
     pred_dict = dict(zip(residues, pred))
     print(pred_dict)
 

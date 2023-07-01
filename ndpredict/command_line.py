@@ -97,7 +97,7 @@ def create_cmd_arguments():
 
     main.add_argument("-m", "--model", default="ndp_model.pkl", nargs="?",
         dest="model",
-        help="NDPredict class object.",
+        help="NDPredict class object. Default: ndp_model.pkl",
         type=str)  
     main.add_argument("-ci", "--chainid", default="A", nargs="?",
         dest="chainid",
