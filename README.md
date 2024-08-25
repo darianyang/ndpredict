@@ -52,7 +52,7 @@ References & Motivation
 --
 * using reference data and methodology inspiration from: Jia L, Sun Y (2017) Protein asparagine deamidation prediction based on structures with machine learning methods. PLoS ONE 12(7): e0181347
 
-* reference paper uses Discovery Studio to calculate features, which is not open source or reproducible. Here, I am working on an fully automated feature calculation pipeline from an input PDB file using pure Python and refine a few of their metrics.
+* reference paper uses Discovery Studio to calculate features, which is not open source or reproducible. Here, I am working on an fully automated feature calculation pipeline from an input PDB file using pure Python and I refined a few of their metrics.
 
 ## Copyright
 
